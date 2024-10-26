@@ -1,0 +1,10 @@
+<DrawTechnique>
+    <Pass cullMode='BACK' topology='TRI_STRIP' fillMode='SOLID'>
+        <Shader stage='VERTEX' uri='//./z/video/uvOutTristripQuad.vsh'/>
+        <Shader stage='FRAGMENT' uri='//./z/video/rgbOutYuvSigma.fsh'/>
+    </Pass>
+    <Pass id='yFlipped' cullMode='BACK' topology='TRI_STRIP' fillMode='SOLID'>
+        <Shader stage='VERTEX' uri='//./z/video/uvOutTristripQuadInvY.vsh'/>
+        <Shader stage='FRAGMENT' uri='//./z/video/rgbOutYuvSigma.fsh'/>
+    </Pass>
+</DrawTechnique>

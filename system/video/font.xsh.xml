@@ -1,0 +1,4 @@
+<Pipeline id='instanced' cullMode='BACK' topology='TRI_STRIP' fillMode='SOLID' >
+    <Shader stage='VERTEX' uri='//./z/video/font.vsh' />
+    <Shader stage='FRAGMENT' uri='//./z/video/font.fsh' />
+</Pipeline>

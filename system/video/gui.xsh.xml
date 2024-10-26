@@ -1,0 +1,10 @@
+<DrawTechnique>
+    <Pass cullMode='BACK' topology='TRI_STRIP' fillMode='SOLID'>
+        <Shader stage='VERTEX' uri='//./z/video/gui.vsh'/>
+        <Shader stage='FRAGMENT' uri='//./z/video/gui.fsh'/>
+    </Pass>
+    <Pass id='aa' cullMode='BACK' topology='TRI_STRIP' fillMode='SOLID'>
+        <Shader stage='VERTEX' uri='//./z/video/gui.vsh'/>
+        <Shader stage='FRAGMENT' uri='//./z/video/gui_edge_aa.fsh'/>
+    </Pass>
+</DrawTechnique>
