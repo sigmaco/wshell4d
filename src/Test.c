@@ -32,8 +32,8 @@ int main(int argc, char const* argv[])
     afxUnit drawIcd = 0;
     afxDrawSystem dsys;
     afxDrawSystemConfig dsyc = { 0 };
-    AvxConfigureDrawSystem(drawIcd, &dsyc);
-    AvxEstablishDrawSystem(drawIcd, &dsyc, &dsys);
+    AfxConfigureDrawSystem(drawIcd, &dsyc);
+    AfxEstablishDrawSystem(drawIcd, &dsyc, &dsys);
     AFX_ASSERT_OBJECTS(afxFcc_DSYS, 1, &dsys);
 
     // Set up the mix system
@@ -86,8 +86,8 @@ int main(int argc, char const* argv[])
 
         afxClock currClock;
         AfxGetClock(&currClock);
-        afxReal64 ct = AfxGetClockSecondsElapsed(&startClock, &currClock);
-        afxReal64 dt = AfxGetClockSecondsElapsed(&lastClock, &currClock);
+        afxReal64 ct = AfxGetSecondsElapsed(&startClock, &currClock);
+        afxReal64 dt = AfxGetSecondsElapsed(&lastClock, &currClock);
         lastClock = currClock;
 
         if (!readyToRender)
