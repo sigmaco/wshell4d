@@ -44,7 +44,7 @@
 #define _AUX_HID_C
 #define _AUX_HID_IMPL
 
-#include "afx/src/dev/AuxImplKit.h"
+#include "afx/src/ux/impl/auxImplementation.h"
 
 #ifndef AUX_DRV_SRC
 #   ifdef _DEBUG
@@ -82,6 +82,9 @@ AFX_OBJECT(afxWindow)
     HWND                hWnd;
     HDC                 hFrameDc;
     HDC                 hSurfaceDc;
+    DWORD               dwStyle;
+    DWORD               dwExStyle;
+    RECT                bkpRc;
     HICON               hIcon;
     afxAtomic           lastBufIdx;
     afxBool             swap;

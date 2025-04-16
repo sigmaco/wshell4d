@@ -16,31 +16,32 @@
 
 #include "AuxOverWin32.h"
 
+_QOW afxError _QowWidDtorCb(afxWidget wid)
+{
+    afxError err = AFX_ERR_NONE;
+    AFX_ASSERT_OBJECTS(afxFcc_WID, 1, &wid);
+
+    AFX_ASSERT(AfxGetTid() == AfxGetObjectTid(wid));
+
+    _AUX_WID_CLASS_CONFIG.dtor(wid);
+
+    return err;
+}
+
 _QOW afxError _QowWidCtorCb(afxWidget wid, void** args, afxUnit invokeNo)
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wid, afxFcc_WID);
+    AFX_ASSERT_OBJECTS(afxFcc_WID, 1, &wid);
 
-    afxSession ses = args[0];
-    AfxAssertObjects(1, &ses, afxFcc_SES);
-    afxWidgetConfig const* cfg = args[1];
+    afxWindow wnd = args[0];
+    AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
+    afxWidgetConfig const* cfg = AFX_CAST(afxWidgetConfig const*, args[1]) + invokeNo;
+    AFX_ASSERT(cfg);
     
-    if (_AuxWidStdImplementation.ctor(wid, args, invokeNo)) AfxThrowError();
+    if (_AUX_WID_CLASS_CONFIG.ctor(wid, args, invokeNo)) AfxThrowError();
     else
     {
         
     }
-    return err;
-}
-
-_QOW afxError _QowWidDtorCb(afxWidget wid)
-{
-    afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wid, afxFcc_WID);
-
-    AFX_ASSERT(AfxGetTid() == AfxGetObjectTid(wid));
-
-    _AuxWidStdImplementation.dtor(wid);
-
     return err;
 }
