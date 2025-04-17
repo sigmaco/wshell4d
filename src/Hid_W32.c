@@ -124,9 +124,9 @@ _QOW afxKey const _win32VkToQwadro[256] =
     afxKey_RET, // VK_RETURN	0x0D	ENTER key
     NIL, //- 0x0E	Unassigned
     NIL, //- 0x0F	Unassigned
-    NIL, // VK_SHIFT	0x10	SHIFT key
-    NIL, // VK_CONTROL	0x11	CTRL key
-    NIL, // VK_MENU	0x12	ALT key
+    afxKey_LSHIFT, // VK_SHIFT	0x10	SHIFT key
+    afxKey_LCTRL, // VK_CONTROL	0x11	CTRL key
+    afxKey_LALT, // VK_MENU	0x12	ALT key
     afxKey_PAUSE, // VK_PAUSE	0x13	PAUSE key
     afxKey_CLOCK, // VK_CAPITAL	0x14	CAPS LOCK key
     NIL, // VK_KANA	0x15	IME Kana mode // VK_HANGUL	0x15	IME Hangul mode
@@ -141,8 +141,8 @@ _QOW afxKey const _win32VkToQwadro[256] =
     NIL, // VK_ACCEPT	0x1E	IME accept
     NIL, // VK_MODECHANGE	0x1F	IME mode change request
     afxKey_SPACE, // VK_SPACE	0x20	SPACEBAR
-    NIL, // VK_PRIOR	0x21	PAGE UP key
-    NIL, // VK_NEXT	0x22	PAGE DOWN key
+    afxKey_PAGEUP, // VK_PRIOR	0x21	PAGE UP key
+    afxKey_PAGEDN, // VK_NEXT	0x22	PAGE DOWN key
     afxKey_END, // VK_END	0x23	END key
     afxKey_HOME, // VK_HOME	0x24	HOME key
     afxKey_LEFT, // VK_LEFT	0x25	LEFT ARROW key
@@ -374,9 +374,9 @@ _QOW afxResult _QowProcessSystemInputMessageWin32(MSG* msg, afxSession ses, afxW
 
     if (!ses && wnd)
     {
-        AfxAssertObjects(1, &wnd, afxFcc_WND);
-        afxSession ses = AfxGetProvider(wnd);
-        AfxAssertObjects(1, &ses, afxFcc_SES);
+        AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
+        ses = AfxGetProvider(wnd);
+        AFX_ASSERT_OBJECTS(afxFcc_SES, 1, &ses);
     }
 
     if (msg->message == WM_INPUT_DEVICE_CHANGE)
@@ -390,11 +390,11 @@ _QOW afxResult _QowProcessSystemInputMessageWin32(MSG* msg, afxSession ses, afxW
 
         if (msg->wParam == GIDC_ARRIVAL)
         {
-            AfxLogAdvertence("HID %p connected.", hDevice);
+            AfxReportWarn("HID %p connected.", hDevice);
         }
         else if (msg->wParam == GIDC_REMOVAL)
         {
-            AfxLogAdvertence("HID %p disconnected.", hDevice);
+            AfxReportWarn("HID %p disconnected.", hDevice);
         }
         else
         {
@@ -483,40 +483,69 @@ _QOW afxResult _QowProcessSystemInputMessageWin32(MSG* msg, afxSession ses, afxW
 
                         if (butChangeCnt)
                         {
-                            AfxEmulateMouseButtonActions(ses, 0, butChangeCnt, buttons, pressed, wnd);
+                            AfxEmulateMouseButtonActions(0, butChangeCnt, buttons, pressed, wnd);
                         }
                     }
 
-                    if (foregroundInput)
+                    //if (foregroundInput)
                     {
                         if (rid->data.mouse.usFlags == MOUSE_MOVE_RELATIVE || rid->data.mouse.usFlags == MOUSE_MOVE_ABSOLUTE)
                         {
                             afxReal motion[2] = { rid->data.mouse.lLastX, rid->data.mouse.lLastY };
-                            AfxEmulateMouseMotion(ses, 0, motion, wnd);
+                            AfxEmulateMouseMotion(0, motion, wnd);
                         }
 
                         if (RI_MOUSE_WHEEL == (usButtonFlags & RI_MOUSE_WHEEL))
                         {
                             afxReal wheel = (afxInt16)rid->data.mouse.usButtonData;
-                            AfxEmulateMouseWheelAction(ses, 0, wheel, wnd);
+                            AfxEmulateMouseWheelAction(0, wheel, wnd);
                         }
                     }
                 }
                 else if (rid->header.dwType == RIM_TYPEKEYBOARD)
                 {
+                    afxBool isE0 = ((rid->data.keyboard.Flags & RI_KEY_E0) != 0);
+                    afxBool isE1 = ((rid->data.keyboard.Flags & RI_KEY_E1) != 0);
+
                     afxKey key2 = _win32VkToQwadro[rid->data.keyboard.VKey];
+
+                    switch (rid->data.keyboard.VKey)
+                    {
+                    case VK_CONTROL: if (isE0) key2 = afxKey_RCTRL; break; // fix right control code.
+                    case VK_MENU: if (isE0) key2 = afxKey_RALT; break; // fix right alt code.
+                    case VK_RETURN: if (isE0) key2 = afxKey_NENT; break; // fix numpad enter code.
+                    // the standard INSERT, DELETE, HOME, END, PRIOR and NEXT keys will always have their e0 bit set, but the corresponding keys on the NUMPAD will not.
+                    case VK_INSERT: if (!isE0) key2 = afxKey_N0; break;
+                    case VK_DELETE: if (!isE0) key2 = afxKey_NSEP; break;
+                    case VK_HOME: if (!isE0) key2 = afxKey_N7; break;
+                    case VK_END: if (!isE0) key2 = afxKey_N1; break;
+                    case VK_PRIOR: if (!isE0) key2 = afxKey_N9; break;
+                    case VK_NEXT: if (!isE0) key2 = afxKey_N3; break;
+                    // the standard arrow keys will always have their e0 bit set, but the corresponding keys on the NUMPAD will not.
+                    case VK_LEFT: if (!isE0) key2 = afxKey_N4;  break;
+                    case VK_RIGHT: if (!isE0) key2 = afxKey_N6; break;
+                    case VK_UP: if (!isE0) key2 = afxKey_N8; break;
+                    case VK_DOWN: if (!isE0) key2 = afxKey_N2; break;
+                    // NUMPAD 5 doesn't have its e0 bit set
+                    case VK_CLEAR: if (!isE0) key2 = afxKey_N5; break;
+                    default: break;
+                    }
                     //afxKey key = vkDereferenceMap[rid->data.keyboard.VKey];
                     afxUnit8 pressure = (RI_KEY_BREAK == (rid->data.keyboard.Flags & RI_KEY_BREAK) || !foregroundInput) ? 0x00 : 0xFF; //!!(rid->data.keyboard.Message == WM_KEYDOWN || rid->data.keyboard.Message == WM_SYSKEYDOWN);
-                    AfxEmulatePressedKeys(ses, 0, 1, &key2, &pressure, wnd);
+                    afxBool wasUp = ((rid->data.keyboard.Flags & RI_KEY_BREAK) != 0);
+                    UINT key = (rid->data.keyboard.MakeCode << 16) | (isE0 << 24);
+
+                    AfxEmulatePressedKeys(0, 1, &key2, &pressure, wnd);
                 }
             }
+            DefRawInputProc((void*)bytes, 1, sizeof(RAWINPUTHEADER));
         }
         //break;
     }
     else if (msg->message == WM_KILLFOCUS)
     {
-        AfxReleaseAllKeys(ses, 0, wnd);
-        AfxReleaseMouseButtons(ses, 0, wnd);
+        AfxReleaseAllKeys(0, wnd);
+        AfxReleaseMouseButtons(0, wnd);
     }
     return rslt;
 }
@@ -524,7 +553,7 @@ _QOW afxResult _QowProcessSystemInputMessageWin32(MSG* msg, afxSession ses, afxW
 _QOW afxError _QowHidDtorCb(afxHid hid)
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &hid, afxFcc_HID);
+    AFX_ASSERT_OBJECTS(afxFcc_HID, 1, &hid);
 
     static RAWINPUTDEVICE const rid[] =
     {
@@ -551,7 +580,7 @@ _QOW afxError _QowHidDtorCb(afxHid hid)
     if (!(RegisterRawInputDevices(rid, ARRAY_SIZE(rid), sizeof(rid[0]))))
         AfxThrowError();
 
-    _AuxHidStdImplementation.dtor(hid);
+    _AUX_HID_CLASS_CONFIG.dtor(hid);
 
     return err;
 }
@@ -559,14 +588,14 @@ _QOW afxError _QowHidDtorCb(afxHid hid)
 _QOW afxResult _QowHidCtorCb(afxHid hid, void** args, afxUnit invokeNo)
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &hid, afxFcc_HID);
+    AFX_ASSERT_OBJECTS(afxFcc_HID, 1, &hid);
 
     afxDriver icd = args[0];
-    AfxAssertObjects(1, &icd, afxFcc_ICD);
+    AFX_ASSERT_OBJECTS(afxFcc_ICD, 1, &icd);
     afxUnit const *ports = args[1];
     afxUnit port = (afxUnit)ports[invokeNo];
 
-    _AuxHidStdImplementation.ctor(hid, args, invokeNo);
+    _AUX_HID_CLASS_CONFIG.ctor(hid, args, invokeNo);
 
     static afxBool hasRidBeenRegistered = FALSE;
 

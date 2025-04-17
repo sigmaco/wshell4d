@@ -101,15 +101,15 @@ _QOW HICON _AuxCreateWin32Icon(afxTarga const* tga, afxUnit xHotspot, afxUnit yH
 }
 #endif
 
-_QOW HICON _AuxCreateWin32IconFromRaster(afxRaster ras, afxUnit xHotspot, afxUnit yHotspot, afxBool icon)
+_QOW HICON _AuxCreateWin32IconFromRaster(avxRaster ras, afxBool cursor, afxUnit xHotspot, afxUnit yHotspot)
 // Creates an RGBA icon or cursor
 {
     afxError err = NIL;
     HICON handle = NIL;
 
-    afxWhd whd = AfxGetRasterExtent(ras, 0);
-    avxFormat fmt = AfxGetRasterFormat(ras);
-    AFX_ASSERT(fmt == avxFormat_BGRA8);
+    avxRange whd = AvxGetRasterExtent(ras, 0);
+    avxFormat fmt = AvxGetRasterFormat(ras);
+    AFX_ASSERT(fmt == avxFormat_BGRA8un);
 
     BITMAPV5HEADER bi = { 0 };
     bi.bV5Size = sizeof(bi);
@@ -131,15 +131,15 @@ _QOW HICON _AuxCreateWin32IconFromRaster(afxRaster ras, afxUnit xHotspot, afxUni
     if (!color) AfxThrowError();
     else
     {
-        afxRasterIo iop = { 0 };
+        avxRasterIo iop = { 0 };
         iop.rowStride = whd.w * (bi.bV5BitCount / 8);
-        AfxWhdCopy(&iop.rgn.extent, whd);
+        iop.rgn.extent = whd;
 
-        if (AfxDumpRaster(ras, 1, &iop, dst, 0))
+        if (AvxDumpRaster(ras, dst, 1, &iop, 0))
             AfxThrowError();
 
-        afxDrawContext dctx = AfxGetRasterContext(ras);
-        AfxWaitForDrawBridge(dctx, 0, 0);
+        afxDrawSystem dsys = AfxGetProvider(ras);
+        AvxWaitForDrawBridges(dsys, 0, 0);
 
         HBITMAP mask;
 
@@ -147,7 +147,7 @@ _QOW HICON _AuxCreateWin32IconFromRaster(afxRaster ras, afxUnit xHotspot, afxUni
         else
         {
             ICONINFO ii = { 0 };
-            ii.fIcon = icon;
+            ii.fIcon = !cursor;
             ii.xHotspot = xHotspot;
             ii.yHotspot = yHotspot;
             ii.hbmMask = mask;
@@ -170,14 +170,14 @@ _QOW LRESULT WINAPI _QowWndHndlngPrcW32Callback(HWND hWnd, UINT message, WPARAM 
 
     if (wnd)
     {
-        AfxAssertObjects(1, &wnd, afxFcc_WND);
+        AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
         afxSession ses = AfxGetProvider(wnd);
-        AfxAssertObjects(1, &ses, afxFcc_SES);
+        AFX_ASSERT_OBJECTS(afxFcc_SES, 1, &ses);
 
         if (wnd->m.redrawFrameRequested)
         {
             wnd->m.redrawFrameRequested = FALSE;
-            SetWindowTextA(hWnd, wnd->m.caption.buf);
+            SetWindowTextA(hWnd, wnd->m.title.buf);
             RedrawWindow(hWnd, NIL, NIL, RDW_FRAME);
         }
 
@@ -214,6 +214,9 @@ _QOW LRESULT WINAPI _QowWndHndlngPrcW32Callback(HWND hWnd, UINT message, WPARAM 
             msg.message = message;
             msg.wParam = wParam;
             _QowProcessSystemInputMessageWin32(&msg, ses, wnd);  // we need this at focus loss to gain a last chance to release all keys.
+
+            // RIM_INPUT --- Input occurred while the application was in the foreground.
+            // The application must call DefWindowProc so the system can perform cleanup.
             break;
         }
         case WM_SYSCOMMAND: // Intercept System Commands
@@ -307,11 +310,11 @@ _QOW LRESULT WINAPI _QowWndHndlngPrcW32Callback(HWND hWnd, UINT message, WPARAM 
         {
             HDC dc;
             afxDrawOutput dout = wnd->m.dout;
-            AfxGetDrawOutputIdd(dout, 0, &dc);
-            afxWhd const resolution = { GetDeviceCaps(dc, HORZRES), GetDeviceCaps(dc, VERTRES), GetDeviceCaps(dc, PLANES) };
-            afxReal64 physAspRatio = AfxFindPhysicalAspectRatio(GetDeviceCaps(dc, HORZSIZE), GetDeviceCaps(dc, VERTSIZE));
+            AvxCallDrawOutput(dout, 0, 0, NIL, sizeof(dc), &dc, NIL, NIL);
+            avxRange const resolution = { GetDeviceCaps(dc, HORZRES), GetDeviceCaps(dc, VERTRES), GetDeviceCaps(dc, PLANES) };
+            afxReal64 physAspRatio = AvxFindPhysicalAspectRatio(GetDeviceCaps(dc, HORZSIZE), GetDeviceCaps(dc, VERTSIZE));
             afxReal refreshRate = GetDeviceCaps(dc, VREFRESH);
-            AfxResetDrawOutputResolution(dout, resolution, refreshRate, physAspRatio);
+            AvxModifyDrawOutputSettings(dout, physAspRatio, refreshRate, resolution, FALSE);
 
             afxDesktop* dwm = wnd->m.dwm;
             dwm->wpOverHp = physAspRatio;
@@ -339,21 +342,47 @@ _QOW LRESULT WINAPI _QowWndHndlngPrcW32Callback(HWND hWnd, UINT message, WPARAM 
         }
         case WM_MOUSEMOVE:
         {
-            // TODO build a kind of handler for draw input to deal with it.
-
             POINTS points = MAKEPOINTS(lParam);
 
-            afxV2d curr = { AfxScalar(points.x), AfxScalar(points.y) };
+            afxV2d curr = { AFX_R(points.x), AFX_R(points.y) };
 
-            AfxV2dSub(wnd->m.cursorMove, wnd->m.cursorPos, curr);
-            AfxV2dCopy(wnd->m.cursorPos, curr);
+            AfxV2dSub(wnd->m.cursMove, wnd->m.cursPos, curr);
+            AfxV2dCopy(wnd->m.cursPos, curr);
 
-            afxV2d screen = { AfxScalar(wnd->m.frameRect.w), AfxScalar(wnd->m.frameRect.h) };
+            afxV2d screen = { AFX_R(wnd->m.frameRect.w), AFX_R(wnd->m.frameRect.h) };
 
-            AfxNdcV2d(wnd->m.cursorPosNdc, wnd->m.cursorPos, screen);
-            AfxNdcV2d(wnd->m.cursorMoveNdc, wnd->m.cursorMove, screen);
+            AfxV2dNdc(wnd->m.cursPosNdc, wnd->m.cursPos, screen);
+            AfxV2dNdc(wnd->m.cursMoveNdc, wnd->m.cursMove, screen);
 
             //data2->breake = TRUE;
+            break;
+        }
+        case WM_MOUSELEAVE:
+        {
+            /*
+                The mouse left the client area of the window specified in a prior call to TrackMouseEvent. 
+                All tracking requested by TrackMouseEvent is canceled when this message is generated. 
+                The application must call TrackMouseEvent when the mouse reenters its window if it requires further tracking of mouse hover behavior.
+            */
+            break;
+        }
+        case WM_MOUSEHOVER:
+        {
+            /*
+                The mouse hovered over the client area of the window for the period of time specified in a prior call to TrackMouseEvent. 
+                Hover tracking stops when this message is generated. The application must call TrackMouseEvent again if it requires further 
+                tracking of mouse hover behavior.
+            */
+            break;
+        }
+        case WM_NCMOUSELEAVE:
+        {
+            // The same meaning as WM_MOUSELEAVE except this is for the nonclient area of the window.
+            break;
+        }
+        case WM_NCMOUSEHOVER:
+        {
+            // The same meaning as WM_MOUSEHOVER except this is for the nonclient area of the window.
             break;
         }
 #if 0
@@ -372,28 +401,28 @@ _QOW LRESULT WINAPI _QowWndHndlngPrcW32Callback(HWND hWnd, UINT message, WPARAM 
             fdrop.y = ppt.y;
             afxUnit cnt = DragQueryFileA(hDrop, 0xFFFFFFFF, NIL, NIL);
 
-            AfxMakeArray(&fdrop.files, sizeof(afxChar const*), 0, AfxHere());
+            AfxMakeArray(&fdrop.files, sizeof(afxChar const*), 0, NIL, 0);
 
             afxChar* name = NIL;
             afxUnit len = 0;
             afxUnit i;
 
-            afxDrawContext dctx;
-            AfxGetDrawOutputContext(dout, &dctx);
-            AfxAssertType(dctxD, afxFcc_DCTX);
-            afxMmu mmu = AfxGetDrawContextMmu(dctx);
-            AfxAssertObjects(1, &mmu, afxFcc_MMU);
+            afxDrawSystem dsys;
+            AvxGetDrawOutputContext(dout, &dsys);
+            AfxAssertType(dctxD, afxFcc_DSYS);
+            afxMmu mmu = AfxGetDrawSystemMmu(dsys);
+            AFX_ASSERT_OBJECTS(afxFcc_MMU, 1, &mmu);
 
             for (i = 0; i < cnt; i++)
             {
                 len = DragQueryFileA(hDrop, i, NIL, 0);
 
-                if (!(name = AfxAllocate(mmu, len + 1, 1, 0, AfxHere()))) AfxLogError("");
+                if (!(name = AfxAllocate(mmu, len + 1, 1, 0, AfxHere()))) AfxReportError("");
                 else
                 {
                     DragQueryFileA(hDrop, i, name, len + 1);
                     afxUnit arrIdx;
-                    void *arrel = AfxInsertArrayUnit(&fdrop.files, &arrIdx);
+                    void *arrel = AfxPushArrayUnit(&fdrop.files, &arrIdx);
                     AfxCopy2(1, sizeof(name), name, arrel);
                 }
             }
@@ -404,7 +433,7 @@ _QOW LRESULT WINAPI _QowWndHndlngPrcW32Callback(HWND hWnd, UINT message, WPARAM 
 
             for (i = 0; i < AfxGetArrayPop(&fdrop.files); i++)
             {
-                AfxLogEcho("%s", *(afxChar const**)AfxGetArrayUnit(&fdrop.files, i));
+                AfxReportMessage("%s", *(afxChar const**)AfxGetArrayUnit(&fdrop.files, i));
             }
 
             for (i = 0; i < AfxGetArrayPop(&fdrop.files); i++)
@@ -412,7 +441,7 @@ _QOW LRESULT WINAPI _QowWndHndlngPrcW32Callback(HWND hWnd, UINT message, WPARAM 
                 AfxDeallocate(mmu, *(afxChar**)AfxGetArrayUnit(&fdrop.files, i));
             }
 
-            AfxCleanUpArray(&fdrop.files);
+            AfxEmptyArray(&fdrop.files, FALSE, FALSE);
 
             DragFinish(hDrop);
             //data2->breake = TRUE;
@@ -422,31 +451,56 @@ _QOW LRESULT WINAPI _QowWndHndlngPrcW32Callback(HWND hWnd, UINT message, WPARAM 
 #endif
         case WM_KILLFOCUS: // Sent to a window immediately before it loses the keyboard focus.
         {
-            if (wnd->m.cursorDisabled)
+            if (wnd->m.cursHidden)
             {
                 ShowCursor(TRUE);
                 0;//AfxEnableCursor(wnd);
             }
-            else if (wnd->m.cursorConfined)
+            else if (wnd->m.cursConfined)
             {
-                AFX_ASSERT(wnd == ses->m.curCapturedOn);
+                AFX_ASSERT(wnd == ses->m.cursCapturedOn);
                 afxBool liberated = !!ClipCursor(NULL);
-                ses->m.curCapturedOn = NIL;
+                ses->m.cursCapturedOn = NIL;
             }
             wnd->m.focused = FALSE;
+            ses->m.focusedWnd = NIL;
 
-            MSG msg = { 0 };
-            msg.hwnd = hWnd;
-            msg.lParam = lParam;
-            msg.message = message;
-            msg.wParam = wParam;
-            _QowProcessSystemInputMessageWin32(&msg, ses, wnd);  // we need this at focus loss to gain a last chance to release all keys.
-
+            {
+                // GAMBIARRA
+                // we need this at focus loss to gain a last chance to release all keys.
+                MSG msg = { 0 };
+                msg.hwnd = hWnd;
+                msg.message = message;
+                msg.lParam = lParam;
+                msg.wParam = wParam;
+                _QowProcessSystemInputMessageWin32(&msg, ses, wnd);
+            }
             break;
         }
         case WM_SETFOCUS: // Sent to a window after it has gained the keyboard focus.
         {
             wnd->m.focused = TRUE;
+            ses->m.focusedWnd = wnd;
+
+            POINT cursorPos;
+            if (GetCursorPos(&cursorPos))
+            {
+                // Convert the cursor position to the client area of the window
+                ScreenToClient(hWnd, &cursorPos);
+                // Get the window's client rectangle
+                RECT clientRect;
+                if (GetClientRect(hWnd, &clientRect))
+                {
+                    // Check if the cursor is inside the client rectangle
+                    if (cursorPos.x >= clientRect.left && cursorPos.x <= clientRect.right &&
+                        cursorPos.y >= clientRect.top && cursorPos.y <= clientRect.bottom)
+                    {
+                        // Cursor is inside the window's client area
+
+                    }
+                }
+            }
+            
 #if 0
             if (!AfxIsCursorOnSurface(wnd)) break; // Don't handle frame interaction; just handle cursor in surface.
             else
@@ -522,10 +576,10 @@ _QOW HWND FindShellBackgroundWindowW32(void)
     return hwnd;
 }
 
-_QOW afxError _QowWndChIconCb(afxWindow wnd, afxRaster ras)
+_QOW afxError _QowWndChIconCb(afxWindow wnd, avxRaster ras)
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wnd, afxFcc_WND);
+    AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
 
     AFX_ASSERT(AfxGetTid() == AfxGetObjectTid(wnd));
 
@@ -533,7 +587,7 @@ _QOW afxError _QowWndChIconCb(afxWindow wnd, afxRaster ras)
 
     if (ras)
     {
-        if (!(hIcon = _AuxCreateWin32IconFromRaster(ras, 0, 0, TRUE))) AfxThrowError();
+        if (!(hIcon = _AuxCreateWin32IconFromRaster(ras, FALSE, 0, 0))) AfxThrowError();
         else
         {
             
@@ -560,7 +614,7 @@ _QOW afxError _QowWndChIconCb(afxWindow wnd, afxRaster ras)
 _QOW afxBool DoutNotifyOvy(afxWindow wnd, afxUnit bufIdx)
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wnd, afxFcc_WND);
+    AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
     wnd->lastBufIdx = bufIdx;
     wnd->swap = 1;
 
@@ -570,7 +624,7 @@ _QOW afxBool DoutNotifyOvy(afxWindow wnd, afxUnit bufIdx)
 _QOW afxError _QowWndRedrawCb(afxWindow wnd, afxRect const* rc)
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wnd, afxFcc_WND);
+    AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
 
     AFX_ASSERT(AfxGetTid() == AfxGetObjectTid(wnd));
 
@@ -585,9 +639,9 @@ _QOW afxError _QowWndRedrawCb(afxWindow wnd, afxRect const* rc)
             //DwmFlush();
 
             afxUnit rate = 0;
-            AfxGetDrawOutputFrequency(wnd->m.dout, &rate);
-            //AfxFormatWindowCaption(wnd, "%u --- Draw I/O System --- Qwadro Execution Ecosystem (c) 2017 SIGMA Technology --- Public Test Build", rate);
-            SetWindowTextA(wnd->hWnd, AfxGetStringData(&wnd->m.caption.str, 0));
+            AvxGetDrawOutputRate(wnd->m.dout, &rate);
+            //AfxFormatWindowTitle(wnd, "%u --- Draw I/O System --- Qwadro Execution Ecosystem (c) 2017 SIGMA Technology --- Public Test Build", rate);
+            SetWindowTextA(wnd->hWnd, AfxGetStringData(&wnd->m.title.s, 0));
         }
     }
     return err;
@@ -597,7 +651,7 @@ _QOW afxError _QowWndRedrawCb(afxWindow wnd, afxRect const* rc)
 _QOW afxBool AfxTraceScreenToSurface(afxWindow wnd, afxUnit const screenPos[2], afxUnit surfPos[2])
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wnd, afxFcc_WND);
+    AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
     AFX_ASSERT(screenPos);
 
     AFX_ASSERT(AfxGetTid() == AfxGetObjectTid(wnd));
@@ -613,7 +667,7 @@ _QOW afxBool AfxTraceScreenToSurface(afxWindow wnd, afxUnit const screenPos[2], 
 _QOW afxBool AfxTraceSurfaceToScreen(afxWindow wnd, afxUnit const surfPos[2], afxUnit screenPos[2])
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wnd, afxFcc_WND);
+    AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
     AFX_ASSERT(surfPos);
 
     AFX_ASSERT(AfxGetTid() == AfxGetObjectTid(wnd));
@@ -627,26 +681,10 @@ _QOW afxBool AfxTraceSurfaceToScreen(afxWindow wnd, afxUnit const surfPos[2], af
 }
 #endif
 
-_QOW afxBool _QowWndMoveCb(afxWindow wnd, afxUnit const pos[2])
+_QOW afxError _QowWndAdjustCb(afxWindow wnd, afxBool frame, afxRect const* rc)
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wnd, afxFcc_WND);
-
-    wnd->m.frameRect.x = pos[0];
-    wnd->m.frameRect.y = pos[1];
-
-    AFX_ASSERT(AfxGetTid() == AfxGetObjectTid(wnd));
-
-    if (!SetWindowPos(wnd->hWnd, NIL, pos[0], pos[1], 0, 0, SWP_NOOWNERZORDER | SWP_NOSIZE | SWP_NOZORDER))
-        AfxThrowError();
-
-    return !err;
-}
-
-_QOW afxError _QowWndAdjustCb(afxWindow wnd, afxRect const* frame, afxRect const* surface)
-{
-    afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wnd, afxFcc_WND);
+    AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
 
     AFX_ASSERT(AfxGetTid() == AfxGetObjectTid(wnd));
 
@@ -654,13 +692,11 @@ _QOW afxError _QowWndAdjustCb(afxWindow wnd, afxRect const* frame, afxRect const
 
     if (frame)
     {
-        AfxAssert3(frame, frame->w, frame->h);
-
         afxRect rc2;
-        rc2.x = AfxMinu(frame->x, dwm->res.w - 1);
-        rc2.y = AfxMinu(frame->y, dwm->res.h - 1);
-        rc2.w = AfxMax(1, AfxMin(frame->w, dwm->res.w));
-        rc2.h = AfxMax(1, AfxMin(frame->h, dwm->res.h));
+        rc2.x = AfxMinu(rc->x, dwm->res.w - 1);
+        rc2.y = AfxMinu(rc->y, dwm->res.h - 1);
+        rc2.w = AFX_MAX(1, AFX_MIN(rc->w, dwm->res.w));
+        rc2.h = AFX_MAX(1, AFX_MIN(rc->h, dwm->res.h));
 
         if ((wnd->m.frameRect.x != rc2.x) ||
             (wnd->m.frameRect.y != rc2.y) ||
@@ -670,39 +706,28 @@ _QOW afxError _QowWndAdjustCb(afxWindow wnd, afxRect const* frame, afxRect const
             afxInt32 extraWndWidth, extraWndHeight;
             CalcWindowValuesW32(wnd->hWnd, &extraWndWidth, &extraWndHeight);
 
-            AfxAssert2(rc2.w, rc2.h);
+            AFX_ASSERT2(rc2.w, rc2.h);
             wnd->m.frameRect = rc2;
 
             wnd->m.surfaceRect.x = wnd->m.marginL;
             wnd->m.surfaceRect.y = wnd->m.marginT;
-            wnd->m.surfaceRect.w = AfxMin(AfxMax(1, rc2.w - wnd->m.marginR - wnd->m.marginL), wnd->m.frameRect.w);
-            wnd->m.surfaceRect.h = AfxMin(AfxMax(1, rc2.h - wnd->m.marginB - wnd->m.marginT), wnd->m.frameRect.h);
+            wnd->m.surfaceRect.w = wnd->m.frameRect.w - wnd->m.marginR - wnd->m.marginL;
+            wnd->m.surfaceRect.h = wnd->m.frameRect.h - wnd->m.marginB - wnd->m.marginT;
 
-            if (!SetWindowPos(wnd->hWnd, NULL, 0, 0, wnd->m.frameRect.w, wnd->m.frameRect.h, SWP_NOZORDER))
-                AfxThrowError();
-
-            afxWhd whd;
-            afxDrawOutput dout = wnd->m.dout;
-            AfxAssertObjects(1, &dout, afxFcc_DOUT);
-            whd = AfxGetDrawOutputExtent(dout);
-            whd.w = wnd->m.surfaceRect.w;
-            whd.h = wnd->m.surfaceRect.h;
-
-            if (AfxAdjustDrawOutput(dout, whd))
+            if (!SetWindowPos(wnd->hWnd, NULL, wnd->m.frameRect.x, wnd->m.frameRect.y, wnd->m.frameRect.w, wnd->m.frameRect.h, SWP_NOOWNERZORDER | SWP_NOZORDER))
                 AfxThrowError();
         }
     }
-
-    if (surface)
+    else
     {
-        AfxAssert2(wnd->m.frameRect.w > (afxUnit)surface->x, wnd->m.frameRect.h > (afxUnit)surface->y);
-        //AfxAssert4(surface->w, wnd->m.frameRect.w > (afxUnit)area->w, surface->h, wnd->m.frameRect.h > (afxUnit)surface->h);
+        //AFX_ASSERT2(wnd->m.frameRect.extent.w > (afxUnit)rc->origin.x, wnd->m.frameRect.extent.h > (afxUnit)rc->origin.y);
+        //AFX_ASSERT4(surface->w, wnd->m.frameRect.w > (afxUnit)area->w, surface->h, wnd->m.frameRect.h > (afxUnit)surface->h);
 
         afxRect rc2;
-        rc2.x = AfxMinu(surface->x, wnd->m.frameRect.w - 1);
-        rc2.y = AfxMinu(surface->y, wnd->m.frameRect.h - 1);
-        rc2.w = AfxMax(1, surface->w/*AfxMin(surface->w, wnd->m.frameRect.w)*/);
-        rc2.h = AfxMax(1, surface->h/*AfxMin(surface->h, wnd->m.frameRect.h)*/);
+        rc2.x = AfxMinu(rc->x, wnd->m.frameRect.w - 1);
+        rc2.y = AfxMinu(rc->y, wnd->m.frameRect.h - 1);
+        rc2.w = AFX_MAX(1, rc->w/*AFX_MIN(surface->w, wnd->m.frameRect.w)*/);
+        rc2.h = AFX_MAX(1, rc->h/*AFX_MIN(surface->h, wnd->m.frameRect.h)*/);
 
         if ((wnd->m.surfaceRect.x != rc2.x) ||
             (wnd->m.surfaceRect.y != rc2.y) ||
@@ -712,188 +737,228 @@ _QOW afxError _QowWndAdjustCb(afxWindow wnd, afxRect const* frame, afxRect const
             afxInt32 extraWndWidth, extraWndHeight;
             CalcWindowValuesW32(wnd->hWnd, &extraWndWidth, &extraWndHeight);
 
-            AfxAssert2(rc2.w, rc2.h);
+            AFX_ASSERT2(rc2.w, rc2.h);
             wnd->m.frameRect.w = rc2.w + extraWndWidth;
             wnd->m.frameRect.h = rc2.h + extraWndHeight;
+            wnd->m.frameRect.x += rc2.x;
+            wnd->m.frameRect.y += rc2.y;
             wnd->m.surfaceRect = rc2;
 
-            if (!SetWindowPos(wnd->hWnd, NULL, 0, 0, wnd->m.frameRect.w, wnd->m.frameRect.h, SWP_NOMOVE | SWP_NOZORDER))
+            if (!SetWindowPos(wnd->hWnd, NULL, wnd->m.frameRect.x, wnd->m.frameRect.y, wnd->m.frameRect.w, wnd->m.frameRect.h, SWP_NOOWNERZORDER | SWP_NOZORDER))
                 AfxThrowError();
-
-            afxDrawOutput dout = wnd->m.dout;
-
-            if (dout)
-            {
-                AfxAssertObjects(1, &dout, afxFcc_DOUT);
-
-                afxWhd whd;
-                whd = AfxGetDrawOutputExtent(dout);
-                whd.w = wnd->m.surfaceRect.w;
-                whd.h = wnd->m.surfaceRect.h;
-
-                if (AfxAdjustDrawOutput(dout, whd))
-                    AfxThrowError();
-            }
         }
+    }
+
+    afxDrawOutput dout = wnd->m.dout;    
+    if (dout)
+    {
+        AFX_ASSERT_OBJECTS(afxFcc_DOUT, 1, &dout);
+
+        avxRange whd;
+        AvxQueryDrawOutputExtent(dout, &whd, NIL);
+        whd.w = wnd->m.surfaceRect.w;
+        whd.h = wnd->m.surfaceRect.h;
+
+        if (AvxAdjustDrawOutput(dout, whd))
+            AfxThrowError();
+    }
+    dout = wnd->m.frameDout;
+    if (dout)
+    {
+        AFX_ASSERT_OBJECTS(afxFcc_DOUT, 1, &dout);
+
+        avxRange whd;
+        AvxQueryDrawOutputExtent(dout, &whd, NIL);
+        whd.w = wnd->m.frameRect.w;
+        whd.h = wnd->m.frameRect.h;
+
+        if (AvxAdjustDrawOutput(dout, whd))
+            AfxThrowError();
     }
     return err;
 }
 
-_QOW afxError _QowWndCtorCb(afxWindow wnd, void** args, afxUnit invokeNo)
+_QOW afxBool _QowWndChangeVisibility(afxWindow wnd, afxBool visible)
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wnd, afxFcc_WND);
-
-    afxSession ses = args[0];
-    AfxAssertObjects(1, &ses, afxFcc_SES);
-    afxWindowConfig const* cfg = (afxWindowConfig const*)(args[1]) + invokeNo;
-    
-    if (!cfg) AfxThrowError();
-    else
-    {
-        if (_AuxWndStdImplementation.ctor(wnd, (void*[]){ ses, &cfg }, 0)) AfxThrowError();
-        else
-        {
-            wnd->m.redrawCb = _QowWndRedrawCb;
-            wnd->m.adjustCb = _QowWndAdjustCb;
-            wnd->m.chIconCb = _QowWndChIconCb;
-            wnd->m.moveCb = _QowWndMoveCb;
-
-            DWORD dwExStyle = WS_EX_APPWINDOW; // Window Extended Style
-            DWORD dwStyle = WS_CLIPCHILDREN | WS_CLIPSIBLINGS; // Window Style
-
-            //dwExStyle |= WS_EX_CONTEXTHELP;
-            //dwExStyle |= WS_EX_NOREDIRECTIONBITMAP;
-
-            if (wnd->m.fullscreen)
-            {
-                dwExStyle |= WS_EX_TOPMOST;
-                dwStyle |= WS_POPUP;
-                //ShowCursor(FALSE);
-            }
-            else
-            {
-                if (wnd->m.floating)
-                    dwExStyle |= WS_EX_TOPMOST;
-
-                dwStyle |= WS_SYSMENU | WS_MINIMIZEBOX;
-
-                if (!wnd->m.decorated) dwStyle |= WS_POPUP;
-                else
-                {
-                    dwStyle |= WS_CAPTION;
-
-                    if (wnd->m.resizable)
-                        dwStyle |= WS_MAXIMIZEBOX | WS_THICKFRAME;
-                }
-            }
-
-            HWND hWnd = CreateWindowExA(dwExStyle, ses->wndClss.lpszClassName, ses->wndClss.lpszClassName, dwStyle, 0, 0, 1, 1, NIL, NIL, ses->wndClss.hInstance, NIL);
-
-            if (!hWnd) AfxThrowError();
-            else
-            {
-                wnd->hIcon = NIL;
-                wnd->hFrameDc = NIL;
-                wnd->hSurfaceDc = GetDC(hWnd);;
-                wnd->hWnd = hWnd;
-                SetWindowLongPtrA(hWnd, GWLP_USERDATA, (LONG_PTR)wnd);
-
-                if (!wnd->m.fullscreen)
-                {
-                    HMENU hMenu = CreateMenu();
-                    HMENU hFileMenu = CreatePopupMenu();
-                    AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hFileMenu, "File");
-                    AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/0, "New");
-                    AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/1, "Open");
-                    AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/2, "Save");
-                    AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/3, "Import");
-                    AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/4, "Export");
-                    AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/5, "Quit");
-
-                    HMENU hEditMenu = CreatePopupMenu();
-                    AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hEditMenu, "Edit");
-
-                    HMENU hRenderMenu = CreatePopupMenu();
-                    AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hRenderMenu, "Render");
-                    AppendMenu(hRenderMenu, MF_STRING, /*ID_FILE_EXIT*/0, "Wireframe");
-
-                    HMENU hWindowMenu = CreatePopupMenu();
-                    AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hWindowMenu, "Window");
-                    AppendMenu(hWindowMenu, MF_STRING, /*ID_FILE_EXIT*/0, "Spawn new");
-                    AppendMenu(hWindowMenu, MF_STRING, /*ID_FILE_EXIT*/1, "Go fullscreen");
-                    AppendMenu(hWindowMenu, MF_STRING, /*ID_FILE_EXIT*/1, "Print screenshot");
-
-                    // Set the menu to the window
-                    SetMenu(hWnd, hMenu);
-                }
-
-                DragAcceptFiles(hWnd, TRUE);
-
-                afxDrawOutput dout;
-                afxDrawOutputConfig doutCfg = { 0 };
-                doutCfg = cfg->surface;
-                doutCfg.bufUsage |= afxRasterUsage_DRAW;
-                doutCfg.bufUsageDs[0] |= afxRasterUsage_DRAW;
-                doutCfg.bufUsageDs[1] |= afxRasterUsage_DRAW;
-                doutCfg.doNotClip = FALSE;
-
-                doutCfg.endpointNotifyObj = wnd;
-                doutCfg.endpointNotifyFn = (void*)DoutNotifyOvy;
-                doutCfg.w32.hInst = ses->wndClss.hInstance;
-                doutCfg.w32.hWnd = hWnd;
-
-                if (AfxOpenDrawOutput(cfg->ddevId, &doutCfg, &dout)) AfxThrowError();
-                else
-                {
-                    wnd->m.dout = dout;
-
-                    afxRect rc = cfg->rc;
-                    rc.w = AfxMax(1, rc.w);;
-                    rc.h = AfxMax(1, rc.h);
-                    AfxAdjustWindow(wnd, &rc, NIL);
-#if !0
-                    if (doutCfg.presentAlpha && doutCfg.presentAlpha != avxPresentAlpha_OPAQUE)
-                    {
-                        DWM_BLURBEHIND bb = { 0 };
-                        bb.dwFlags = DWM_BB_ENABLE;
-                        bb.fEnable = TRUE;
-                        DwmEnableBlurBehindWindow(wnd->hWnd, &(bb)); // não functiona no chad Windows XP
-                    }
-#endif
-
-                    ShowWindow(hWnd, SHOW_OPENWINDOW);
-                }
-
-                if (err)
-                    DestroyWindow(wnd->hWnd);
-            }
-
-            if (err)
-                _AuxWndStdImplementation.dtor(wnd);
-        }
-    }
-    return err;
+    AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
+    return !!ShowWindow(wnd->hWnd, visible ? SW_SHOW : SW_HIDE);
 }
+
+_QOW _auxWndDdi const _QOW_WND_IMPL =
+{
+    .redrawCb = _QowWndRedrawCb,
+    .adjustCb = _QowWndAdjustCb,
+    .chIconCb = _QowWndChIconCb,
+};
 
 _QOW afxError _QowWndDtorCb(afxWindow wnd)
 {
     afxError err = AFX_ERR_NONE;
-    AfxAssertObjects(1, &wnd, afxFcc_WND);
+    AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
 
     AFX_ASSERT(AfxGetTid() == AfxGetObjectTid(wnd));
 
     AfxDeregisterChainedClasses(&wnd->m.classes);
 
-    _AuxWndStdImplementation.dtor(wnd);
+    _AUX_WND_CLASS_CONFIG.dtor(wnd);
 
-    //AfxReleaseObjects(1, &wnd->m.dout);
+    //AfxDisposeObjects(1, &wnd->m.dout);
 
     AfxChangeWindowIcon(wnd, NIL); // detach any custom icon
     AFX_ASSERT(!wnd->hIcon);
 
     DragAcceptFiles(wnd->hWnd, FALSE);
     DestroyWindow(wnd->hWnd);
+
+    return err;
+}
+
+_QOW afxError _QowWndCtorCb(afxWindow wnd, void** args, afxUnit invokeNo)
+{
+    afxError err = AFX_ERR_NONE;
+    AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
+
+    afxSession ses = args[0];
+    AFX_ASSERT_OBJECTS(afxFcc_SES, 1, &ses);
+    afxWindowConfig const* cfg = (afxWindowConfig const*)(args[1]) + invokeNo;
     
+    if (!cfg)
+    {
+        AfxThrowError();
+        return err;
+    }
+
+    afxClassConfig widClsCfg = _AUX_WID_CLASS_CONFIG;
+    widClsCfg.fixedSiz = sizeof(AFX_OBJ(afxWidget));
+    widClsCfg.ctor = (void*)_QowWidCtorCb;
+    widClsCfg.dtor = (void*)_QowWidDtorCb;
+
+    if (_AUX_WND_CLASS_CONFIG.ctor(wnd, (void*[]) { ses, &cfg, (void*)&widClsCfg }, 0))
+    {
+        AfxThrowError();
+        return err;
+    }
+
+    wnd->m.pimpl = &_QOW_WND_IMPL;
+
+    DWORD dwExStyle = WS_EX_APPWINDOW; // Window Extended Style
+    DWORD dwStyle = WS_CLIPCHILDREN | WS_CLIPSIBLINGS; // Window Style
+
+    //dwExStyle |= WS_EX_CONTEXTHELP;
+    //dwExStyle |= WS_EX_NOREDIRECTIONBITMAP;
+
+    if (wnd->m.fullscreen)
+    {
+        dwExStyle |= WS_EX_TOPMOST;
+        dwStyle |= WS_POPUP;
+        //ShowCursor(FALSE);
+    }
+    else
+    {
+        if (wnd->m.floating)
+            dwExStyle |= WS_EX_TOPMOST;
+
+        dwStyle |= WS_SYSMENU | WS_MINIMIZEBOX;
+
+        if (!wnd->m.decorated) dwStyle |= WS_POPUP;
+        else
+        {
+            dwStyle |= WS_CAPTION;
+
+            if (wnd->m.resizable)
+                dwStyle |= WS_MAXIMIZEBOX | WS_THICKFRAME;
+        }
+    }
+
+    wnd->dwExStyle = dwExStyle;
+    wnd->dwStyle = dwStyle;
+
+    HWND hWnd = CreateWindowExA(dwExStyle, ses->wndClss.lpszClassName, ses->wndClss.lpszClassName, dwStyle, 0, 0, 1, 1, NIL, NIL, ses->wndClss.hInstance, NIL);
+
+    if (!hWnd) AfxThrowError();
+    else
+    {
+        wnd->hIcon = NIL;
+        wnd->hFrameDc = NIL;
+        wnd->hSurfaceDc = GetDC(hWnd);
+        wnd->hWnd = hWnd;
+        SetWindowLongPtrA(hWnd, GWLP_USERDATA, (LONG_PTR)wnd);
+
+#if 0
+        if (!wnd->m.fullscreen)
+        {
+            HMENU hMenu = CreateMenu();
+            HMENU hFileMenu = CreatePopupMenu();
+            AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hFileMenu, "File");
+            AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/0, "New");
+            AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/1, "Open");
+            AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/2, "Save");
+            AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/3, "Import");
+            AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/4, "Export");
+            AppendMenu(hFileMenu, MF_STRING, /*ID_FILE_EXIT*/5, "Quit");
+
+            HMENU hEditMenu = CreatePopupMenu();
+            AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hEditMenu, "Edit");
+
+            HMENU hRenderMenu = CreatePopupMenu();
+            AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hRenderMenu, "Render");
+            AppendMenu(hRenderMenu, MF_STRING, /*ID_FILE_EXIT*/0, "Wireframe");
+
+            HMENU hWindowMenu = CreatePopupMenu();
+            AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hWindowMenu, "Window");
+            AppendMenu(hWindowMenu, MF_STRING, /*ID_FILE_EXIT*/0, "Spawn new");
+            AppendMenu(hWindowMenu, MF_STRING, /*ID_FILE_EXIT*/1, "Go fullscreen");
+            AppendMenu(hWindowMenu, MF_STRING, /*ID_FILE_EXIT*/1, "Print screenshot");
+
+            // Set the menu to the window
+            SetMenu(hWnd, hMenu);
+        }
+#endif
+
+        DragAcceptFiles(hWnd, TRUE);
+
+        afxDrawOutput dout;
+        afxDrawOutputConfig doutCfg = { 0 };
+        doutCfg = cfg->surface;
+        doutCfg.bufUsage[0] |= avxRasterUsage_DRAW;
+        doutCfg.bufUsage[1] |= avxRasterUsage_DRAW;
+        doutCfg.bufUsage[2] |= avxRasterUsage_DRAW;
+        doutCfg.doNotClip = FALSE;
+
+        doutCfg.endpointNotifyObj = wnd;
+        doutCfg.endpointNotifyFn = (void*)DoutNotifyOvy;
+        doutCfg.w32.hInst = ses->wndClss.hInstance;
+        doutCfg.w32.hWnd = hWnd;
+
+        if (AvxOpenDrawOutput(cfg->dsys, &doutCfg, &dout)) AfxThrowError();
+        else
+        {
+            wnd->m.dout = dout;
+
+            afxRect rc = cfg->rc;
+            rc.w = AFX_MAX(1, rc.w);;
+            rc.h = AFX_MAX(1, rc.h);
+            AfxAdjustWindow(wnd, FALSE, &rc);
+#if !0
+            if (doutCfg.presentAlpha && (doutCfg.presentAlpha != avxVideoAlpha_OPAQUE))
+            {
+                DWM_BLURBEHIND bb = { 0 };
+                bb.dwFlags = DWM_BB_ENABLE;
+                bb.fEnable = TRUE;
+                DwmEnableBlurBehindWindow(wnd->hWnd, &(bb)); // ausente no chad Windows XP
+            }
+#endif
+
+            ShowWindow(hWnd, SHOW_OPENWINDOW);
+        }
+
+        if (err)
+            DestroyWindow(wnd->hWnd);
+    }
+
+    if (err)
+        _AUX_WND_CLASS_CONFIG.dtor(wnd);
+
     return err;
 }
