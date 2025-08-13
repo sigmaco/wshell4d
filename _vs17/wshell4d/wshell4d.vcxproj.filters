@@ -7,6 +7,12 @@
     <Filter Include="_dll">
       <UniqueIdentifier>{a2641e5f-e548-4c3b-ad8f-96d4011b47e2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\gdi">
+      <UniqueIdentifier>{6f326977-b697-4f77-a158-2dfa2a211cac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\wasapi">
+      <UniqueIdentifier>{dba5c4ac-91b3-48ff-bd2c-f935c58914e5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -22,20 +28,26 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\Window_W32.c">
+    <ClCompile Include="..\..\src\gdi\qowSurface_GDI.c">
+      <Filter>src\gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\qowWindow_W32.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\Shell_W32.c">
+    <ClCompile Include="..\..\src\qowWidget_W32.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\Hid_W32.c">
+    <ClCompile Include="..\..\src\qowShell_W32.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\Session_W32.c">
+    <ClCompile Include="..\..\src\qowSession_W32.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\Widget_W32.c">
+    <ClCompile Include="..\..\src\qowHid_W32.c">
       <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\icd_tarzgl4\src\zglSurface_WGL.c">
+      <Filter>src\gdi</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
