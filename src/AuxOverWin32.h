@@ -28,6 +28,16 @@
 #include <shellapi.h>
 #include <hidusage.h>
 
+#include <intrin.h>
+#include <d3d9.h>
+#include <d3d11.h>
+#include <dxgi1_2.h>
+#include <dxva2api.h>
+#include <winddi.h>
+#include <d3d11.h>
+#include <d3d9.h>
+#include <dxgi1_2.h>
+
 #define _AFX_CORE_C
 #define _AFX_DEVICE_C
 #define _AFX_CONTEXT_C
@@ -45,6 +55,13 @@
 #define _AUX_HID_IMPL
 
 #include "afx/src/ux/impl/auxImplementation.h"
+
+#define _AVX_DRAW_C
+#define _AVX_DRAW_OUTPUT_C
+#define _AVX_DRAW_OUTPUT_IMPL
+#include "afx/src/draw/ddi/avxImplementation.h"
+
+#include "../../icd_tarzgl4/src/zglDefs.h"
 
 #ifndef AUX_DRV_SRC
 #   ifdef _DEBUG
@@ -90,9 +107,90 @@ AFX_OBJECT(afxWindow)
     afxBool             swap;
 };
 
+AFX_OBJECT(afxSurface)
+{
+    AFX_OBJECT(_avxSurface) m;
+
+    HINSTANCE               hInst;
+    HWND                    hWnd;
+    afxBool                 isWpp;
+    HDC                     hDC;
+    int                     dcPixFmt;
+    PIXELFORMATDESCRIPTOR   dcPfd;
+    union
+    {
+        struct
+        {
+            struct
+            {
+                HDC memDC; // use just one?
+                HGDIOBJ oldGdiObjBkp; // required to deselect the bitmap; we can not pass NULL.
+                HBITMAP hBitmap;
+                void* bytemap;
+            } *swaps;
+        } gdi;
+        struct
+        {
+            HGLRC       hSwapRC; // only swaps it. This is needed because hGLRC are strictly bound to a pixel format.
+            HGLRC       hPrimeRC;
+            int         glVerMaj;
+            int         glVerMin;
+            afxBool     robustCtx;
+            glVmt const*gl;
+            struct
+            {
+                GLuint  swapFbo;
+                afxBool8 swapFboReady;
+            } *swaps;
+            afxBool swapOnWgl;
+        } wgl;
+        struct
+        {
+            ID3D11Device*   d3d11Dev;
+            HANDLE          d3d11DevForGl;
+            DXGI_FORMAT mSwapChainFormat;
+            UINT mSwapChainFlags;
+            afxBool mFirstSwap;
+            IDXGISwapChain *mSwapChain;
+            IDXGISwapChain1 *mSwapChain1;
+            GLuint mFramebufferID;
+            GLuint mColorRenderbufferID;
+            HANDLE mRenderbufferBufferHandle;
+            GLuint mTextureID;
+            HANDLE mTextureHandle;
+            afxInt mSwapInterval;
+            afxInt mOrientation;
+        } dxgi;
+        struct
+        {
+            IDirect3D9Ex*       d3d9Ex;
+            IDirect3DDevice9Ex* d3d9DevEx;
+            HANDLE              d3d9DevExForGl;
+            IDirect3DSwapChain9*d3d9Sw;
+            IDirect3DTexture9* sharedTexture;
+            IDirect3DSurface9* pSurface;
+        } d3dsw9;
+    };
+};
+
+
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#define NK_KEYSTATE_BASED_INPUT
+
+#define NK_INCLUDE_FONT_BAKING
+#include "../../guis/nuklear/demo/qwadro/nuklear_qwadro.h"
+
 AFX_OBJECT(afxWidget)
 {
     AFX_OBJ(_auxWidget) m;
+    struct nk_afx idd;
+    struct nk_context *ctx;
 };
 
 QOW afxKey const _win32VkToQwadro[256];

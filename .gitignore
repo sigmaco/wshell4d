@@ -260,8 +260,7 @@ paket-files/
 __pycache__/
 *.pyc
 
-
-
 /_vs17/.vs
+/_vs17/**/.vs
 /_vs17/**/Debug
 /_vs17/**/Release
