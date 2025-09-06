@@ -14,11 +14,58 @@
  *                             <https://sigmaco.org/qwadro/>
  */
 
-#include "AuxOverWin32.h"
+#include "qowBase.h"
 #pragma comment(lib,"dwmapi.lib")
 
 QOW LRESULT WINAPI _QowWndHndlngPrcW32Callback(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 extern afxKey const Scan1MakeToQwadroDereferenceMap[afxKey_TOTAL];
+
+#ifdef AFX_OS_WIN10
+_QOW BOOL CALLBACK FindShellWorkerWindowW32(HWND hwnd, LPARAM lParam)
+{
+    HWND* found = (HWND*)lParam;
+
+    if (FindWindowExA(hwnd, NULL, "SHELLDLL_DefView", NULL))
+        *found = FindWindowExA(NULL, hwnd, "WorkerW", NULL);
+
+    return TRUE;
+}
+#endif
+
+_QOW HWND FindShellBackgroundWindowW32(void)
+{
+    HWND hwnd = 0;
+#ifdef AFX_OS_WIN10
+    // Windows 10 Method
+
+    SendMessageTimeoutA(FindWindowA("ProgMan", NULL), 0x052C, 0, 0, SMTO_NORMAL, 1000, NULL);
+    hwnd = 0;
+    EnumWindows(FindShellWorkerWindowW32, (LPARAM)&(hwnd));
+#else
+    // Windows 7 Method
+    HWND p = FindWindowA("ProgMan", NULL);
+    HWND s = FindWindowExA(p, NULL, "SHELLDLL_DefView", NULL);
+    hwnd = FindWindowExA(s, NULL, "SysListView32", NULL);
+#endif
+    return hwnd;
+}
+
+_QOW afxError _QowSesDrawBgCb(afxSession ses, afxDrawContext dctx, afxFlags flags)
+{
+    afxError err = AFX_ERR_NONE;
+    AFX_ASSERT_OBJECTS(afxFcc_SES, 1, &ses);
+
+    if (ses->m.dsys)
+    {
+        AFX_ASSERT_OBJECTS(afxFcc_DSYS, 1, &ses->m.dsys);
+
+        AFX_ASSERT_OBJECTS(afxFcc_DCTX, 1, &dctx);
+        //AvxExecuteDrawCommands(ses->m.dsys, 1, &dctx);
+
+        // TODO: Get/Gen surface for wallpapper.
+    }
+    return err;
+}
 
 _QOW afxTime _QowSesPump(afxSession ses, afxFlags flags, afxTime timeout)
 {
@@ -44,7 +91,7 @@ _QOW afxTime _QowSesPump(afxSession ses, afxFlags flags, afxTime timeout)
         if (wnd)
         {
             AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
-            ses = AfxGetProvider(wnd);
+            ses = AfxGetHost(wnd);
             AFX_ASSERT_OBJECTS(afxFcc_SES, 1, &ses);
         }
 
@@ -299,6 +346,7 @@ _QOW afxBool _QowGetFocusedWindow(afxSession ses, afxWindow* window)
         AFX_ASSERT(NIL == hWndFocused);
         *window = NIL;
     }
+
     return !!wnd;
 }
 
@@ -337,7 +385,7 @@ _QOW afxBool getMousePosition(afxSession ses, afxRect* rc, afxWindow wnd, afxRec
     int h = GetSystemMetrics(SM_CYCURSOR);
     POINT cursorPos;
     BOOL rslt = GetCursorPos(&cursorPos);
-    ses->m.cursRect = AVX_RECT(cursorPos.x, cursorPos.y, w, h);
+    ses->m.cursRect = AFX_RECT(cursorPos.x, cursorPos.y, w, h);
 
     if (rc)
         *rc = ses->m.cursRect;
@@ -355,7 +403,7 @@ _QOW afxBool getMousePosition(afxSession ses, afxRect* rc, afxWindow wnd, afxRec
                 cursorPos.y >= wr.top && cursorPos.y <= wr.bottom)
             {
                 // Cursor is inside the window's area
-                *onFrame = AVX_RECT(cursorPos.x - wr.left, cursorPos.y - wr.top, w, h);
+                *onFrame = AFX_RECT(cursorPos.x - wr.left, cursorPos.y - wr.top, w, h);
             }
             else rslt = FALSE;
         }
@@ -374,7 +422,7 @@ _QOW afxBool getMousePosition(afxSession ses, afxRect* rc, afxWindow wnd, afxRec
                 cursorPos.y >= cr.top && cursorPos.y <= cr.bottom)
             {
                 // Cursor is inside the window's client area
-                *onSurface = AVX_RECT(cursorPos.x, cursorPos.y, w, h);
+                *onSurface = AFX_RECT(cursorPos.x, cursorPos.y, w, h);
             }
             else rslt = FALSE;
         }
@@ -433,12 +481,12 @@ _QOW afxError immergeWindow(afxSession ses, afxWindow wnd, afxBool fullscreen)
                 AfxThrowError();
             }
 
-            if (!SetWindowLongPtr(hWnd, GWL_STYLE, WS_POPUP | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS))
+            if (!SetWindowLongPtr(hWnd, GWL_STYLE, (WS_POPUP | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS)))
             {
                 AfxThrowError();
             }
 
-            if (!SetWindowLongPtr(hWnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST))
+            if (!SetWindowLongPtr(hWnd, GWL_EXSTYLE, (WS_EX_APPWINDOW | WS_EX_TOPMOST)))
             {
                 AfxThrowError();
             }
@@ -456,7 +504,7 @@ _QOW afxError immergeWindow(afxSession ses, afxWindow wnd, afxBool fullscreen)
                 AfxThrowError();
             }
 #endif
-
+#if 0
             if (!SetWindowPos(hWnd,
                 HWND_TOPMOST,
                 0,
@@ -466,41 +514,52 @@ _QOW afxError immergeWindow(afxSession ses, afxWindow wnd, afxBool fullscreen)
                 SWP_FRAMECHANGED))
             {
                 AfxThrowError();
+                // let proceed to restore
+                //return err;
+            }
+#else
+            if (!_QowPlaceFseSurfaceW32(hWnd))
+            {
+                AfxThrowError();
+                // let proceed to restore
+                //return err;
+            }
+#endif
+            else
+            {
+                wnd->bkpRc = bkpRc;
+                wnd->m.fullscreen = TRUE;
                 return err;
             }
-            wnd->bkpRc = bkpRc;
-            wnd->m.fullscreen = TRUE;
         }
-        else
+
+        bkpRc = wnd->bkpRc;
+        wnd->m.fullscreen = FALSE;
+
+        if (!SetWindowLongPtr(hWnd, GWL_STYLE, wnd->dwStyle | WS_VISIBLE))
         {
-            bkpRc = wnd->bkpRc;
-            wnd->m.fullscreen = FALSE;
+            AfxThrowError();
+            return err;
+        }
 
-            if (!SetWindowLongPtr(hWnd, GWL_STYLE, wnd->dwStyle | WS_VISIBLE))
-            {
-                AfxThrowError();
-                return err;
-            }
+        if (!SetWindowLongPtr(hWnd, GWL_EXSTYLE, wnd->dwExStyle))
+        {
+            AfxThrowError();
+            return err;
+        }
 
-            if (!SetWindowLongPtr(hWnd, GWL_EXSTYLE, wnd->dwExStyle))
-            {
-                AfxThrowError();
-                return err;
-            }
+        // Restore the window position.
 
-            // Restore the window position.
-
-            if (!SetWindowPos(hWnd,
-                HWND_NOTOPMOST,
-                bkpRc.left,
-                bkpRc.top,
-                bkpRc.right - bkpRc.left,
-                bkpRc.bottom - bkpRc.top,
-                SWP_FRAMECHANGED))
-            {
-                AfxThrowError();
-                return err;
-            }
+        if (!SetWindowPos(hWnd,
+            HWND_NOTOPMOST,
+            bkpRc.left,
+            bkpRc.top,
+            bkpRc.right - bkpRc.left,
+            bkpRc.bottom - bkpRc.top,
+            SWP_FRAMECHANGED))
+        {
+            AfxThrowError();
+            return err;
         }
     }
     return err;

@@ -91,7 +91,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>AUX_DRV_SRC;_WINDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..;C:\Program Files (x86)\Visual Leak Detector\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..;$(ProjectDir)..\..\..\qwadro;C:\Program Files (x86)\Visual Leak Detector\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
@@ -106,7 +106,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>AUX_DRV_SRC;_WINDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..;C:\Program Files (x86)\Visual Leak Detector\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..;$(ProjectDir)..\..\..\qwadro;C:\Program Files (x86)\Visual Leak Detector\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
@@ -123,7 +123,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>AUX_DRV_SRC;_WINDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..;C:\Program Files (x86)\Visual Leak Detector\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..;$(ProjectDir)..\..\..\qwadro;C:\Program Files (x86)\Visual Leak Detector\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -145,7 +145,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>AUX_DRV_SRC;_WINDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..;C:\Program Files (x86)\Visual Leak Detector\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..;$(ProjectDir)..\..\..\qwadro;C:\Program Files (x86)\Visual Leak Detector\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -159,24 +159,32 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\AuxOverWin32.h" />
+    <ClInclude Include="..\..\..\guis\nuklear\demo\qwadro\nuklear_qwadro.h" />
+    <ClInclude Include="..\..\src\qowAudio_W32.h" />
+    <ClInclude Include="..\..\src\qowBase.h" />
+    <ClInclude Include="..\..\src\qowVideo_W32.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="wshell4d.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\icd_tarzgl4\src\zglSurface_WGL.c" />
-    <ClCompile Include="..\..\src\gdi\qowSurface_GDI.c" />
     <ClCompile Include="..\..\src\qowHid_W32.c" />
     <ClCompile Include="..\..\src\qowSession_W32.c" />
     <ClCompile Include="..\..\src\qowShell_W32.c" />
+    <ClCompile Include="..\..\src\qowSink_WASAPI.c" />
+    <ClCompile Include="..\..\src\qowSurface_GDI.c" />
     <ClCompile Include="..\..\src\qowWidget_W32.c" />
     <ClCompile Include="..\..\src\qowWindow_W32.c" />
+    <ClCompile Include="..\..\src\qowSurface_WGL.c" />
+    <ClCompile Include="..\..\src\qowDisplay_W32.c" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\afx\_vs17\e2coree\e2coree.vcxproj">
       <Project>{973a60ff-ea6c-4d62-a302-bf610cabab8c}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\icd_amiga\_vs17\amiga\amiga.vcxproj">
+      <Project>{8f03fe4a-aa74-4cfd-a703-c3460e7fa54f}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\..\icd_tarzgl4\_vs17\tarzgl4\tarzgl4.vcxproj">
       <Project>{1bafd2ad-9548-4fa9-b268-6afe5087845d}</Project>

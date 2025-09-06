@@ -14,7 +14,7 @@
  *                      Open sourced under the Qwadro License.
  */
 
-#include "qwadro/inc/afxQwadro.h"
+#include "qwadro/afxQwadro.h"
 
 
 int main(int argc, char const* argv[])
@@ -32,8 +32,11 @@ int main(int argc, char const* argv[])
     afxUnit drawIcd = 0;
     afxDrawSystem dsys;
     afxDrawSystemConfig dsyc = { 0 };
-    AfxConfigureDrawSystem(drawIcd, &dsyc);
-    AfxEstablishDrawSystem(drawIcd, &dsyc, &dsys);
+    AvxConfigureDrawSystem(drawIcd, &dsyc);
+    dsyc.caps = afxDrawFn_DRAW | afxDrawFn_PRESENT;
+    dsyc.accel = afxAcceleration_DPU;
+    dsyc.exuCnt = 1;
+    AvxEstablishDrawSystem(drawIcd, &dsyc, &dsys);
     AFX_ASSERT_OBJECTS(afxFcc_DSYS, 1, &dsys);
 
     // Set up the mix system
@@ -41,9 +44,10 @@ int main(int argc, char const* argv[])
     afxUnit mixIcd = 0;
     afxMixSystem msys;
     afxMixSystemConfig msyc = { 0 };
-    AfxConfigureMixSystem(mixIcd, &msyc);
     msyc.dsys = dsys; // integrate our draw system
-    AfxEstablishMixSystem(mixIcd, &msyc, &msys);
+    msyc.exuCnt = 1;
+    AfxConfigureMixSystem(mixIcd, &msyc);
+    AmxEstablishMixSystem(mixIcd, &msyc, &msys);
     AFX_ASSERT_OBJECTS(afxFcc_MSYS, 1, &msys);
 
     // Open a session
@@ -66,8 +70,8 @@ int main(int argc, char const* argv[])
     AfxAcquireWindow(&wrc, &wnd);
     //AfxAdjustWindowFromNdc(window, NIL, AFX_V3D(0.5, 0.5, 1));
     
-    afxDrawOutput dout;
-    AfxGetWindowDrawOutput(wnd, FALSE, &dout);
+    afxSurface dout;
+    AfxGetWindowSurface(wnd, &dout);
     AFX_ASSERT_OBJECTS(afxFcc_DOUT, 1, &dout);
 
     // Run
@@ -79,7 +83,7 @@ int main(int argc, char const* argv[])
 
     while (1)
     {
-        AfxPollInput(0, AFX_TIME_INFINITE);
+        AfxPollInput(0, AFX_TIMEOUT_INFINITE);
 
         if (!AfxSystemIsExecuting())
             break;
