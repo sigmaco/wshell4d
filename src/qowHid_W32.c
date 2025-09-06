@@ -18,7 +18,7 @@
 #define _AFX_DEVICE_C
 #define _AUX_UX_C
 #define _AUX_HID_C
-#include "AuxOverWin32.h"
+#include "qowBase.h"
 
 _QOW afxKey const vkDereferenceMap[afxKey_TOTAL];
 _QOW afxKey const kbdLayoutUss[afxKey_TOTAL];
@@ -375,7 +375,7 @@ _QOW afxResult _QowProcessSystemInputMessageWin32(MSG* msg, afxSession ses, afxW
     if (!ses && wnd)
     {
         AFX_ASSERT_OBJECTS(afxFcc_WND, 1, &wnd);
-        ses = AfxGetProvider(wnd);
+        ses = AfxGetHost(wnd);
         AFX_ASSERT_OBJECTS(afxFcc_SES, 1, &ses);
     }
 
@@ -483,7 +483,7 @@ _QOW afxResult _QowProcessSystemInputMessageWin32(MSG* msg, afxSession ses, afxW
 
                         if (butChangeCnt)
                         {
-                            AfxEmulateMouseButtonActions(0, butChangeCnt, buttons, pressed, wnd);
+                            AfxEmulateMouseButtonActions(0, butChangeCnt, buttons, pressed);
                         }
                     }
 
@@ -492,13 +492,13 @@ _QOW afxResult _QowProcessSystemInputMessageWin32(MSG* msg, afxSession ses, afxW
                         if (rid->data.mouse.usFlags == MOUSE_MOVE_RELATIVE || rid->data.mouse.usFlags == MOUSE_MOVE_ABSOLUTE)
                         {
                             afxReal motion[2] = { rid->data.mouse.lLastX, rid->data.mouse.lLastY };
-                            AfxEmulateMouseMotion(0, motion, wnd);
+                            AfxEmulateMouseMotion(0, motion);
                         }
 
                         if (RI_MOUSE_WHEEL == (usButtonFlags & RI_MOUSE_WHEEL))
                         {
                             afxReal wheel = (afxInt16)rid->data.mouse.usButtonData;
-                            AfxEmulateMouseWheelAction(0, wheel, wnd);
+                            AfxEmulateMouseWheelAction(0, wheel);
                         }
                     }
                 }
@@ -535,7 +535,7 @@ _QOW afxResult _QowProcessSystemInputMessageWin32(MSG* msg, afxSession ses, afxW
                     afxBool wasUp = ((rid->data.keyboard.Flags & RI_KEY_BREAK) != 0);
                     UINT key = (rid->data.keyboard.MakeCode << 16) | (isE0 << 24);
 
-                    AfxEmulatePressedKeys(0, 1, &key2, &pressure, wnd);
+                    AfxEmulatePressedKeys(0, 1, &key2, &pressure);
                 }
             }
             DefRawInputProc((void*)bytes, 1, sizeof(RAWINPUTHEADER));
@@ -544,8 +544,8 @@ _QOW afxResult _QowProcessSystemInputMessageWin32(MSG* msg, afxSession ses, afxW
     }
     else if (msg->message == WM_KILLFOCUS)
     {
-        AfxReleaseAllKeys(0, wnd);
-        AfxReleaseMouseButtons(0, wnd);
+        AfxReleaseAllKeys(0);
+        AfxReleaseMouseButtons(0);
     }
     return rslt;
 }

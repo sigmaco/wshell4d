@@ -1,5 +1,5 @@
 # Windows Shell CI for Qwadro
-The Windows Shell Continuous Integration (CI) is a shell implementation for Qwadro Multimedia User Experience Infrastructure mirroring elements and components of the Windows Shell.
+The Windows Shell Continuous Integration (CI) is a shell implementation for ***Qwadro Multimedia UX Infrastructure*** mirroring elements and components of the Windows Shell, essentially from Windows 7.
 
 ## Contribution
 

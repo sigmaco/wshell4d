@@ -16,7 +16,8 @@
 
 #pragma comment(lib,"dwmapi.lib")
 
-#include "../AuxOverWin32.h"
+#include "qowBase.h"
+#include "qowVideo_W32.h"
 
 _QOW afxUnit _QowDoutIsSuspended(afxSurface dout)
 {
@@ -56,7 +57,7 @@ _QOW afxError _QowDoutPresentCb_GDI(afxDrawQueue dque, avxPresentation* ctrl)
     afxUnit bufIdx = ctrl->bufIdx;
     AFX_ASSERT_OBJECTS(afxFcc_DOUT, 1, &dout);
 
-    AFX_ASSERT(dout->m.presentingBufIdx == bufIdx); // must be called by _AvxDoutPresent() to handle sync.
+    //AFX_ASSERT(dout->m.lastPresentedBufIdx == bufIdx); // must be called by _AvxDoutPresent() to handle sync.
 
     afxRect rc;
     avxRaster buf;
@@ -151,7 +152,7 @@ void _QowPlaceSurfaceW32(HWND hwnd, afxRect const* area)
         SWP_NOZORDER | SWP_FRAMECHANGED);
 }
 
-void _QowPlaceFseSurfaceW32(HWND hwnd)
+_QOW afxBool _QowPlaceFseSurfaceW32(HWND hwnd)
 {
     // Get the monitor where the window is (or closest to)
     HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
@@ -160,7 +161,7 @@ void _QowPlaceFseSurfaceW32(HWND hwnd)
     MONITORINFO monitorInfo = { 0 };
     monitorInfo.cbSize = sizeof(monitorInfo);
     if (!GetMonitorInfo(hMonitor, &monitorInfo))
-        return;
+        return FALSE;
 
     // Use rcMonitor for full monitor (including taskbar), or rcWork for work area
     RECT monitorRect = monitorInfo.rcMonitor;
@@ -182,13 +183,14 @@ void _QowPlaceFseSurfaceW32(HWND hwnd)
     int winHeight = desiredClientRect.bottom - desiredClientRect.top;
 
     // Move the window to monitor origin
-    SetWindowPos(hwnd,
+    BOOL r = SetWindowPos(hwnd,
         HWND_TOP,
         monitorRect.left,
         monitorRect.top,
         winWidth,
         winHeight,
         SWP_NOZORDER | SWP_FRAMECHANGED);
+    return r;
 }
 
 _QOW afxError _QowDoutAdjustCb_GDI(afxSurface dout, afxRect const* area, afxBool fse)
@@ -256,7 +258,7 @@ _QOW afxError _QowRelinkDoutCb_GDI(afxSurface dout)
     afxError err = AFX_ERR_NONE;
     AFX_ASSERT_OBJECTS(afxFcc_DOUT, 1, &dout);
 
-    afxDrawSystem dsys = AvxGetSurfaceSystem(dout);
+    afxDrawSystem dsys = AvxGetSurfaceHost(dout);
     AFX_ASSERT_OBJECTS(afxFcc_DSYS, 1, &dsys);
 
     afxDrawBridge dexu;
@@ -276,7 +278,7 @@ _QOW afxError _QowRelinkDoutCb_GDI(afxSurface dout)
     if (!dout->dcPixFmt)
     {
         avxFormatDescription pfd;
-        AvxDescribeFormats(1, &dout->m.ccfg.slots[0].fmt, &pfd);
+        AvxDescribeFormats(1, &dout->m.ccfg.bins[0].fmt, &pfd);
 
         PIXELFORMATDESCRIPTOR wpfd = { 0 };
         wpfd.nSize = sizeof(wpfd);

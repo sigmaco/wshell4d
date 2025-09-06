@@ -29,7 +29,27 @@
 #define NK_IMPLEMENTATION
 #define NK_4D_IMPLEMENTATION
 #define NK_KEYSTATE_BASED_INPUT
-#include "AuxOverWin32.h"
+#include "qowBase.h"
+
+void AuxCmdDivision(afxWidget wid, afxString const* id, afxUnit type)
+{
+
+}
+
+void AuxCmdButton(afxWidget wid, afxString const* id, afxUnit type)
+{
+
+}
+
+void AuxCmdImage(afxWidget wid, afxString const* id, afxUnit type)
+{
+
+}
+
+void AuxUpdateButtonCaption(afxWidget wid, afxString const* id, afxString const* s)
+{
+
+}
 
 _QOW afxError _QowWidUpdateCb(afxWidget wid)
 {
@@ -41,6 +61,9 @@ _QOW afxError _QowWidUpdateCb(afxWidget wid)
 
     struct nk_context *ctx = wid->ctx;
 
+    //document.querySelector("body > div.logged-in.env-production.page-responsive > div.application-main");
+    //document.querySelector("#start-of-content");
+    //document.querySelector("#js-flash-container > template")
 
     static struct nk_colorf bg = { 0.10f, 0.18f, 0.24f, 1.0f };
 
@@ -82,7 +105,7 @@ _QOW afxError _QowWidUpdateCb(afxWidget wid)
     return err;
 }
 
-_QOW afxError _QowWidRenderCb(afxWidget wid, afxDrawContext dctx)
+_QOW afxError _QowWidRenderCb(afxWidget wid, afxRect const* area, afxDrawContext dctx)
 {
     afxError err = AFX_ERR_NONE;
     AFX_ASSERT_OBJECTS(afxFcc_WID, 1, &wid);
@@ -101,7 +124,7 @@ _QOW afxError _QowWidDtorCb(afxWidget wid)
 
     AFX_ASSERT(AfxGetTid() == AfxGetObjectTid(wid));
 
-    nk_afx_shutdown(&wid->ctx);
+    nk_afx_shutdown(&wid->idd);
 
     _AUX_WID_CLASS_CONFIG.dtor(wid);
 
